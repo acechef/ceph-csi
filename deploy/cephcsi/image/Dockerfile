@@ -2,7 +2,24 @@ ARG SRC_DIR="/go/src/github.com/ceph/ceph-csi/"
 ARG GO_ARCH
 ARG BASE_IMAGE
 
-FROM ${BASE_IMAGE} as builder
+FROM ${BASE_IMAGE} as updated_base
+
+RUN cd /etc/yum.repos.d/
+RUN sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
+RUN sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
+
+# TODO: remove the following cmd, when issues
+# https://github.com/ceph/ceph-container/issues/2034
+# https://github.com/ceph/ceph-container/issues/2141 are fixed.
+RUN dnf config-manager --disable \
+    tcmu-runner,tcmu-runner-source,tcmu-runner-noarch,ceph-iscsi,ganesha || true
+
+RUN dnf -y update --nobest \
+       && dnf -y install nfs-utils \
+       && dnf clean all \
+       && rm -rf /var/cache/yum
+
+FROM updated_base as builder
 
 LABEL stage="build"
 
